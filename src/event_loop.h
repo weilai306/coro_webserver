@@ -50,7 +50,7 @@ struct EpollLoop {
         close(mEpoll);
     }
 
-    std::unordered_map<int,int> fd_events;
+    std::unordered_map<int,uint32_t> fd_events;
     int mEpoll = epoll_create1(0);
     std::vector<epoll_event> mEventBuf;
 };
@@ -96,13 +96,13 @@ bool EpollLoop::addListener(EpollFilePromise &promise, int ctl) {
         if(fd_events[promise.mAwaiter->mFileNo] == event.events){
             return true;
         }
-        fd_events[promise.mAwaiter->mFileNo]=event.events;
+        fd_events[promise.mAwaiter->mFileNo]= event.events;
         ctl = EPOLL_CTL_MOD;
-        std::cout << "epoll mod " << promise.mAwaiter->mFileNo << " events:" << event.events << " on epoll "<< mEpoll << std::endl;
+//        std::cout << "epoll mod " << promise.mAwaiter->mFileNo << " events:" << event.events << " on epoll "<< mEpoll << std::endl;
     }else{
-        fd_events[promise.mAwaiter->mFileNo]=event.events;
+        fd_events[promise.mAwaiter->mFileNo]= event.events;
         ctl = EPOLL_CTL_ADD;
-        std::cout << "epoll add " << promise.mAwaiter->mFileNo << " events:" << event.events << " on epoll "<< mEpoll <<std::endl;
+//        std::cout << "epoll add " << promise.mAwaiter->mFileNo << " events:" << event.events << " on epoll "<< mEpoll <<std::endl;
     }
 
     int res = epoll_ctl(mEpoll, ctl, promise.mAwaiter->mFileNo, &event);
@@ -115,25 +115,25 @@ bool EpollLoop::addListener(EpollFilePromise &promise, int ctl) {
 void EpollLoop::removeListener(int fileNo) {
     epoll_ctl(mEpoll, EPOLL_CTL_DEL, fileNo, NULL);
     fd_events.erase(fileNo);
-    std::cout << "remove " << fileNo << " on thread: " << std::this_thread::get_id() << std::endl;
+//    std::cout << "remove " << fileNo << " on thread: " << std::this_thread::get_id() << std::endl;
 }
 
 bool EpollLoop::run(std::optional<std::chrono::steady_clock::duration> timeout) {
     if (fd_events.size() == 0) {
         return false;
     }
-    std::cout << std::this_thread::get_id() << std::endl;
+//    std::cout << std::this_thread::get_id() << std::endl;
     int timeoutInMs = -1;
     if (timeout) {
         timeoutInMs = std::chrono::duration_cast<std::chrono::milliseconds>(*timeout).count();
     }
     int res = epoll_wait(mEpoll, &*mEventBuf.begin(), mEventBuf.size(), timeoutInMs);
     if(res<0){
-        std::cout << errno << std::endl;
+//        std::cout << errno << std::endl;
         return false;
     }
     for (int i = 0; i < res; i++) {
-        std::cout << "epoll: trigger on : "  <<  mEventBuf[i].events << " on epoll "<< mEpoll << std::endl;
+//        std::cout << "epoll: trigger on : "  <<  mEventBuf[i].events << " on epoll "<< mEpoll << std::endl;
         auto &event = mEventBuf[i];
         auto &promise = *(EpollFilePromise *) event.data.ptr;
         promise.mAwaiter->mResumeEvents = event.events;

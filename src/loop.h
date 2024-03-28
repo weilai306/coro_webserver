@@ -14,18 +14,14 @@
 #include <functional>
 #include <sys/epoll.h>
 #include <list>
-#include <iostream>
 #include "event_loop.h"
-#include "http_parser.h"
-#include "http_server.h"
-#include "tcp_server.h"
 #include "timer_loop.h"
 using namespace std::chrono_literals;
 
 
 struct AsyncLoop {
     void run() {
-        while (true) {
+        while (!stopped) {
             auto timeout = 60s;
             if (!new_clients.empty()) {
                 auto task = new_clients.front();
@@ -50,11 +46,16 @@ struct AsyncLoop {
     operator TimerLoop &() {
         return mTimerLoop;
     }
+
+    void stop(){
+        stopped = true;
+    }
 private:
     TimerLoop mTimerLoop;
     EpollLoop mEpollLoop;
     std::deque<std::shared_ptr<Task<>> > new_clients;
     std::deque<std::shared_ptr<Task<>>> tasks_guards;
+    bool stopped = false;
 };
 
 

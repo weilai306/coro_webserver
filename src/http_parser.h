@@ -41,7 +41,6 @@ public:
             size_t nParseBytes = http_parser_execute(&httpParser, &httpSettings, data, length);
             method_ = (enum http_method)httpParser.method;
             if(nParseBytes != length){
-
                 co_return false;
             }
             co_return true;

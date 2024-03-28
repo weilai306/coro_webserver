@@ -1,20 +1,20 @@
-
 #ifndef WEBSERVER_HTTPSERVER_H
 #define WEBSERVER_HTTPSERVER_H
-#include <string>
+
 #include "task.h"
-#include "event_loop.h"
+#include <string>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include "restful_parser.h"
 #include <sys/types.h>
 #include <fcntl.h>
+
 using namespace std::chrono_literals;
 
 class Entity;
 class HttpServer {
 public:
-    HttpServer(EpollLoop& loop, AsyncFile& file);
+    HttpServer(AsyncLoop& loop, AsyncFile& file);
 
     inline void setUrl(std::string &url);
 
@@ -24,7 +24,7 @@ public:
 
     inline void setBody(std::string &&body);
 
-    Task<void> heartbeat(std::chrono::seconds duration);
+    Task<void> heartbeat(AsyncLoop& loop, std::chrono::seconds duration);
 
     Task<size_t>async_send(std::string resp_body, int code);
 
@@ -43,14 +43,14 @@ public:
     Task<bool> on_head();
 
 private:
-    EpollLoop & loop_;
+    AsyncLoop & loop_;
     AsyncFile& client_;
     std::string url_;
     std::string req_body_;
 };
 
 
-HttpServer::HttpServer(EpollLoop& loop, AsyncFile& file): loop_(loop), client_(file){
+HttpServer::HttpServer(AsyncLoop& loop, AsyncFile& file): loop_(loop), client_(file){
 
 }
 
@@ -70,9 +70,9 @@ inline void HttpServer::setBody(std::string &&body) {
     req_body_ = std::move(body); //only move
 }
 
-Task<void> HttpServer::heartbeat(std::chrono::seconds duration) {
+Task<void> HttpServer::heartbeat(AsyncLoop& loop, std::chrono::seconds duration) {
+    co_await TimerAwaiter(loop, 5s); //test Timer (web bench should delete this)
     std::string msg = "HeartbeatMessage";
-
     co_return ;
 }
 
@@ -109,6 +109,11 @@ Task<bool>  HttpServer::on_get() {
         co_await async_send(resp_body, 200);
     } else {
         do {
+            if(resource == "hello"){
+                co_await on_head();
+                co_return true;
+            }
+
             int fd = open(resource.c_str(), O_RDONLY);
             if (fd == -1) {
                 perror("Error opening file");
@@ -138,7 +143,7 @@ Task<bool>  HttpServer::on_get() {
             close(fd);
         } while (false);
 
-        co_await  on_error();
+        co_await on_error();
         co_return false;
     }
     co_return true;

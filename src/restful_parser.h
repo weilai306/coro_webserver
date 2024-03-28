@@ -13,7 +13,7 @@ public:
     }
     std::pair<std::shared_ptr<Entity>, std::string> parse(std::string& url) const{
         if(url.empty() || url[0] != '/' || url.size() == 1){
-            return {nullptr,"index.html"};
+            return {nullptr,"hello"};
         }
         auto last = url.find_last_of('/');
         auto substr = url.substr(1,last-1);

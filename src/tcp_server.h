@@ -5,11 +5,11 @@
 #include "task.h"
 #include "loop.h"
 #include "socket.h"
-#include <iostream>
 #include "event_loop.h"
 #include <memory>
 #include <algorithm>
-
+#include "http_server.h"
+#include "http_parser.h"
 class TcpServer {
 public:
     AsyncLoop &getNextLoop() {
@@ -34,14 +34,14 @@ public:
         baseLoop.run();
     }
 
-    static Task<> on_conn(EpollLoop &loop, int client_fd) {
+    static Task<> on_conn(AsyncLoop &loop, int client_fd) {
         AsyncFile clientFile(client_fd);
         HttpServer httpServer(loop, clientFile);
         while (true) {
             char data[1024];
-            std::cout << "new Conn! on thread " << std::this_thread::get_id() << std::endl;
+//            std::cout << "new Conn! on thread " << std::this_thread::get_id() << std::endl;
             size_t bytes = co_await read_file(loop, clientFile, data);
-            std::cout << "recv: " << bytes << std::endl;
+//            std::cout << "recv: " << bytes << std::endl;
             if (bytes == 0) {
                 break;
             }
@@ -77,14 +77,12 @@ public:
 
     Task<> listen() {
         int listen_fd = socket_bind_listen(8080);
-        std::cout << "listen fd " << listen_fd << std::endl;
+//        std::cout << "listen fd " << listen_fd << std::endl;
         while (listen_fd) {
             auto client_fd = co_await socket_accept(baseLoop, listen_fd);
-            std::cout << "new client fd " << client_fd << std::endl;
+//            std::cout << "new client fd " << client_fd << std::endl;
             auto &Loop = getNextLoop();
             Loop.addNewClientPromise(std::make_shared<Task<>>(on_conn(Loop, client_fd)));
-
-            co_await TimerAwaiter(baseLoop, 5s); //test Timer (web bench should delete this)
         }
         co_return;
     }
