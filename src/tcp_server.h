@@ -12,12 +12,6 @@
 
 class TcpServer {
 public:
-    std::vector<std::thread> threads;
-    std::vector<AsyncLoop *> loops;
-    AsyncLoop baseLoop;
-    int n = std::thread::hardware_concurrency() - 1 <= 0 ? 1 : std::thread::hardware_concurrency() - 1;
-    int next_loop = 0;
-
     AsyncLoop &getNextLoop() {
         auto res = loops[next_loop++];
         if (next_loop >= n) {
@@ -94,6 +88,13 @@ public:
         }
         co_return;
     }
+
+private:
+    std::vector<std::thread> threads;
+    std::vector<AsyncLoop *> loops;
+    AsyncLoop baseLoop;
+    int n = std::thread::hardware_concurrency() - 1 <= 0 ? 1 : std::thread::hardware_concurrency() - 1;
+    int next_loop = 0;
 };
 
 
