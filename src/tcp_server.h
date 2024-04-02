@@ -12,7 +12,7 @@
 #include "http_parser.h"
 class TcpServer {
 public:
-    AsyncLoop &getNextLoop() {
+    Loop &getNextLoop() {
         auto res = loops[next_loop++];
         if (next_loop >= n) {
             next_loop = 0;
@@ -22,7 +22,7 @@ public:
 
     void run() {
         for (int i = 0; i < n; i++) {
-            loops.emplace_back(new AsyncLoop);
+            loops.emplace_back(new Loop);
             threads.emplace_back(std::thread([this, i]() {
                 auto &loop = this->loops[i];
                 loop->run();
@@ -34,14 +34,21 @@ public:
         baseLoop.run();
     }
 
-    static Task<> on_conn(AsyncLoop &loop, int client_fd) {
+    static Task<> on_conn(Loop &loop, int client_fd) {
         AsyncFile clientFile(client_fd);
         HttpServer httpServer(loop, clientFile);
         while (true) {
+//            char data[1024];
+//            size_t bytes = co_await read_file(loop, clientFile, data); //epoll version
+
             char data[1024];
-//            std::cout << "new Conn! on thread " << std::this_thread::get_id() << std::endl;
-            size_t bytes = co_await read_file(loop, clientFile, data);
-//            std::cout << "recv: " << bytes << std::endl;
+            AsyncReadTask readTask{};
+            readTask.fd = client_fd;
+            readTask.data = data;
+            readTask.len = 1024;
+            co_await AsyncAwaiter(loop, &readTask);
+            int bytes = readTask.len;
+
             if (bytes == 0) {
                 break;
             }
@@ -68,7 +75,6 @@ public:
                 }
             }
             if (!res) {
-                co_await httpServer.on_error();
                 break;
             }
         }
@@ -77,10 +83,13 @@ public:
 
     Task<> listen() {
         int listen_fd = socket_bind_listen(8080);
-//        std::cout << "listen fd " << listen_fd << std::endl;
+
         while (listen_fd) {
-            auto client_fd = co_await socket_accept(baseLoop, listen_fd);
-//            std::cout << "new client fd " << client_fd << std::endl;
+            AsyncAcceptTask acceptTask;
+            acceptTask.fd = listen_fd;
+            co_await AsyncAwaiter(baseLoop, &acceptTask);
+            int client_fd = acceptTask.new_conn_fd; // io_uring version
+//            std::cout << client_fd << std::endl;
             auto &Loop = getNextLoop();
             Loop.addNewClientPromise(std::make_shared<Task<>>(on_conn(Loop, client_fd)));
         }
@@ -89,8 +98,8 @@ public:
 
 private:
     std::vector<std::thread> threads;
-    std::vector<AsyncLoop *> loops;
-    AsyncLoop baseLoop;
+    std::vector<Loop *> loops;
+    Loop baseLoop;
     int n = std::thread::hardware_concurrency() - 1 <= 0 ? 1 : std::thread::hardware_concurrency() - 1;
     int next_loop = 0;
 };

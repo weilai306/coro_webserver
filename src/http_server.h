@@ -14,7 +14,7 @@ using namespace std::chrono_literals;
 class Entity;
 class HttpServer {
 public:
-    HttpServer(AsyncLoop& loop, AsyncFile& file);
+    HttpServer(Loop& loop, AsyncFile& file);
 
     inline void setUrl(std::string &url);
 
@@ -24,9 +24,9 @@ public:
 
     inline void setBody(std::string &&body);
 
-    Task<void> heartbeat(AsyncLoop& loop, std::chrono::seconds duration);
+    Task<void> heartbeat(Loop& loop, std::chrono::seconds duration);
 
-    Task<size_t>async_send(std::string resp_body, int code);
+    Task<>async_send(std::string resp_body, int code);
 
     std::pair<std::shared_ptr<Entity>, std::string> parse_to_restful();
 
@@ -43,14 +43,14 @@ public:
     Task<bool> on_head();
 
 private:
-    AsyncLoop & loop_;
+    Loop & loop_;
     AsyncFile& client_;
     std::string url_;
     std::string req_body_;
 };
 
 
-HttpServer::HttpServer(AsyncLoop& loop, AsyncFile& file): loop_(loop), client_(file){
+HttpServer::HttpServer(Loop& loop, AsyncFile& file): loop_(loop), client_(file){
 
 }
 
@@ -70,13 +70,13 @@ inline void HttpServer::setBody(std::string &&body) {
     req_body_ = std::move(body); //only move
 }
 
-Task<void> HttpServer::heartbeat(AsyncLoop& loop, std::chrono::seconds duration) {
+Task<void> HttpServer::heartbeat(Loop& loop, std::chrono::seconds duration) {
     co_await TimerAwaiter(loop, 5s); //test Timer (web bench should delete this)
     std::string msg = "HeartbeatMessage";
     co_return ;
 }
 
-Task<size_t> HttpServer::async_send(std::string resp_body, int code) {
+Task<> HttpServer::async_send(std::string resp_body, int code) {
     size_t content_length = resp_body.size();
     std::string resp_header = "HTTP/1.1 " + std::to_string(code) + " OK\r\nServer: Weilai's AsyCoroWebServer\r\n";
     resp_header += "Content-Length: " + std::to_string(content_length) + "\r\n";
@@ -84,7 +84,14 @@ Task<size_t> HttpServer::async_send(std::string resp_body, int code) {
 
     std::string resp = resp_header + resp_body;
     std::span<char const> span(resp.c_str(), resp.size());
-    co_return co_await write_file(loop_,client_,span);
+
+    //    co_return co_await write_file(loop_,client_,span); //epoll version
+
+    AsyncWriteTask writeTask;
+    writeTask.fd = client_.fileNo();
+    writeTask.data = resp.data();
+    writeTask.len = resp.size();
+    co_await AsyncAwaiter(loop_,&writeTask);
 }
 
 std::pair<std::shared_ptr<Entity>, std::string> HttpServer::parse_to_restful() {
@@ -111,7 +118,7 @@ Task<bool>  HttpServer::on_get() {
         do {
             if(resource == "hello"){
                 co_await on_head();
-                co_return true;
+                co_return false; // close (for webbench)
             }
 
             int fd = open(resource.c_str(), O_RDONLY);

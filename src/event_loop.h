@@ -33,7 +33,7 @@ struct EpollLoop {
 
     inline void removeListener(int fileNo);
 
-    inline bool run(std::optional<std::chrono::system_clock::duration> timeout =
+    inline bool loop(std::optional<std::chrono::system_clock::duration> timeout =
     std::nullopt);
 
     bool hasEvent() const noexcept {
@@ -118,7 +118,7 @@ void EpollLoop::removeListener(int fileNo) {
 //    std::cout << "remove " << fileNo << " on thread: " << std::this_thread::get_id() << std::endl;
 }
 
-bool EpollLoop::run(std::optional<std::chrono::steady_clock::duration> timeout) {
+bool EpollLoop::loop(std::optional<std::chrono::steady_clock::duration> timeout) {
     if (fd_events.size() == 0) {
         return false;
     }

@@ -21,7 +21,7 @@ public:
         mHeap.push(pair);
     }
 
-    std::optional<std::chrono::steady_clock::duration> run(){
+    std::optional<std::chrono::steady_clock::duration> loop(){
         if(mHeap.size()){
             auto top = mHeap.top();
 

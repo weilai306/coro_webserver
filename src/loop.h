@@ -16,10 +16,11 @@
 #include <list>
 #include "event_loop.h"
 #include "timer_loop.h"
+#include "async_loop.h"
 using namespace std::chrono_literals;
 
 
-struct AsyncLoop {
+struct Loop {
     void run() {
         while (!stopped) {
             auto timeout = 60s;
@@ -30,8 +31,10 @@ struct AsyncLoop {
                 tasks_guards.emplace_back(task);
             }
 
-            auto duration = mTimerLoop.run();
-            mEpollLoop.run(duration);
+            mTimerLoop.loop();
+            mEpollLoop.loop();
+
+            mAsyncLoop.loop();
         }
     }
 
@@ -47,12 +50,17 @@ struct AsyncLoop {
         return mTimerLoop;
     }
 
+    operator AsyncLoop &() {
+        return mAsyncLoop;
+    }
+
     void stop(){
         stopped = true;
     }
 private:
     TimerLoop mTimerLoop;
     EpollLoop mEpollLoop;
+    AsyncLoop mAsyncLoop;
     std::deque<std::shared_ptr<Task<>> > new_clients;
     std::deque<std::shared_ptr<Task<>>> tasks_guards;
     bool stopped = false;
