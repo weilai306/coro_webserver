@@ -2,7 +2,7 @@
 #ifndef WEBSERVER_ENTITY_H
 #define WEBSERVER_ENTITY_H
 
-#include <json/json.h>
+#include <jsoncpp/json/json.h>
 class Entity {
 public:
     Entity() {}

@@ -57,6 +57,7 @@ public:
         int res = io_uring_queue_init(64,&ring,0);
         if(res < 0){
             perror("io_uring init error");
+
         }
     }
 
